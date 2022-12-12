@@ -33,7 +33,6 @@ import 'package:accordion/accordion_section.dart';
 import 'package:accordion/controllers.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:scroll_to_index/scroll_to_index.dart';
 
 export 'accordion_section.dart';
 
@@ -70,8 +69,7 @@ class Accordion extends StatelessWidget with CommonParams {
     this.paddingListBottom = 40.0,
     this.paddingListHorizontal = 10.0,
     EdgeInsets? headerPadding,
-    double? paddingBetweenOpenSections,
-    double? paddingBetweenClosedSections,
+    double? paddingBetweenSections,
     ScrollIntoViewOfItems? scrollIntoViewOfItems,
     this.disableScrolling = false,
     SectionHapticFeedback? sectionOpeningHapticFeedback,
@@ -84,24 +82,10 @@ class Accordion extends StatelessWidget with CommonParams {
     bool? scaleWhenAnimating,
     String? accordionId,
   }) : super(key: key) {
-    final listCtrl = Get.put(ListController(), tag: hashCode.toString());
-    listCtrl.initialOpeningSequenceDelay = initialOpeningSequenceDelay ?? 0;
-    listCtrl.maxOpenSections = maxOpenSections ?? 1;
-
-    int index = 0;
-    for (var child in children) {
-      if (child.isOpen &&
-          listCtrl.openSections.length < listCtrl.maxOpenSections) {
-        listCtrl.openSections.add(listCtrl.keys.elementAt(index));
-      }
-      index++;
-    }
-
     this.headerBackgroundColor = headerBackgroundColor;
     this.headerBackgroundColorOpened =
         headerBackgroundColorOpened ?? headerBackgroundColor;
     this.headerBorderRadius = headerBorderRadius;
-    this.leftIcon = leftIcon;
     this.rightIcon = rightIcon;
     this.flipRightIconIfOpen?.value = flipRightIconIfOpen ?? true;
     this.contentBackgroundColor = contentBackgroundColor;
@@ -112,8 +96,7 @@ class Accordion extends StatelessWidget with CommonParams {
     this.contentVerticalPadding = contentVerticalPadding;
     this.headerPadding = headerPadding ??
         const EdgeInsets.symmetric(horizontal: 15, vertical: 7);
-    this.paddingBetweenOpenSections = paddingBetweenOpenSections ?? 10;
-    this.paddingBetweenClosedSections = paddingBetweenClosedSections ?? 3;
+    this.paddingBetweenSections = paddingBetweenSections ?? 10;
     this.scrollIntoViewOfItems = scrollIntoViewOfItems;
     this.sectionOpeningHapticFeedback =
         sectionOpeningHapticFeedback ?? SectionHapticFeedback.none;
@@ -121,7 +104,7 @@ class Accordion extends StatelessWidget with CommonParams {
         sectionClosingHapticFeedback ?? SectionHapticFeedback.none;
     sectionAnimation = openAndCloseAnimation ?? true;
     sectionScaleAnimation = scaleWhenAnimating ?? true;
-    this.accordionId = hashCode.toString();
+    this.accordionId = accordionId ?? hashCode.toString();
   }
 
   @override
@@ -131,9 +114,7 @@ class Accordion extends StatelessWidget with CommonParams {
       itemCount: children.length,
       controller: listCtrl.controller,
       shrinkWrap: true,
-      physics: disableScrolling
-          ? const NeverScrollableScrollPhysics()
-          : const AlwaysScrollableScrollPhysics(),
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(
         top: paddingListTop,
         bottom: paddingListBottom,
@@ -144,57 +125,52 @@ class Accordion extends StatelessWidget with CommonParams {
       itemBuilder: (context, index) {
         final key = listCtrl.keys.elementAt(index);
         final child = children.elementAt(index);
+        final isLast = children.length - 1 == index;
 
-        return AutoScrollTag(
+        return AccordionSection(
           key: key,
-          controller: listCtrl.controller,
           index: index,
-          child: AccordionSection(
-            key: key,
-            index: index,
-            isOpen: child.isOpen,
-            scrollIntoViewOfItems: scrollIntoViewOfItems,
-            headerBackgroundColor:
-                child.headerBackgroundColor ?? headerBackgroundColor,
-            headerBackgroundColorOpened: child.headerBackgroundColorOpened ??
-                headerBackgroundColorOpened ??
-                headerBackgroundColor,
-            headerBorderRadius: child.headerBorderRadius ?? headerBorderRadius,
-            headerPadding: child.headerPadding ?? headerPadding,
-            header: child.header,
-            leftIcon: child.leftIcon ?? leftIcon,
-            rightIcon: child.rightIcon ??
-                rightIcon ??
-                const Icon(
-                  Icons.keyboard_arrow_down,
-                  color: Colors.white60,
-                  size: 20,
-                ),
-            flipRightIconIfOpen:
-                child.flipRightIconIfOpen?.value ?? flipRightIconIfOpen?.value,
-            paddingBetweenClosedSections: child.paddingBetweenClosedSections ??
-                paddingBetweenClosedSections,
-            paddingBetweenOpenSections:
-                child.paddingBetweenOpenSections ?? paddingBetweenOpenSections,
-            content: child.content,
-            contentBackgroundColor:
-                child.contentBackgroundColor ?? contentBackgroundColor,
-            contentBorderColor: child.contentBorderColor ?? contentBorderColor,
-            contentBorderWidth: child.contentBorderWidth ?? contentBorderWidth,
-            contentBorderRadius:
-                child.contentBorderRadius ?? contentBorderRadius,
-            contentHorizontalPadding:
-                child.contentHorizontalPadding ?? contentHorizontalPadding,
-            contentVerticalPadding:
-                child.contentVerticalPadding ?? contentVerticalPadding,
-            sectionOpeningHapticFeedback: child.sectionOpeningHapticFeedback ??
-                sectionOpeningHapticFeedback,
-            sectionClosingHapticFeedback: child.sectionClosingHapticFeedback ??
-                sectionClosingHapticFeedback,
-            accordionId: accordionId,
-            onOpenSection: child.onOpenSection,
-            onCloseSection: child.onCloseSection,
-          ),
+          isOpen: child.isOpen,
+          isLeaf: child.isLeaf,
+          hasAccordionParent: child.hasAccordionParent,
+          isLast: isLast,
+          scrollIntoViewOfItems: scrollIntoViewOfItems,
+          headerBackgroundColor:
+              child.headerBackgroundColor ?? headerBackgroundColor,
+          headerBackgroundColorOpened: child.headerBackgroundColorOpened ??
+              headerBackgroundColorOpened ??
+              headerBackgroundColor,
+          paddingBetweenSections:
+              child.paddingBetweenSections ?? paddingBetweenSections,
+          headerBorderRadius: child.headerBorderRadius ?? headerBorderRadius,
+          headerPadding: child.headerPadding ?? headerPadding,
+          header: child.header,
+          rightIcon: child.rightIcon ??
+              rightIcon ??
+              const Icon(
+                Icons.keyboard_arrow_down,
+                color: Colors.white60,
+                size: 20,
+              ),
+          flipRightIconIfOpen:
+              child.flipRightIconIfOpen?.value ?? flipRightIconIfOpen?.value,
+          content: child.content,
+          contentBackgroundColor:
+              child.contentBackgroundColor ?? contentBackgroundColor,
+          contentBorderColor: child.contentBorderColor ?? contentBorderColor,
+          contentBorderWidth: child.contentBorderWidth ?? contentBorderWidth,
+          contentBorderRadius: child.contentBorderRadius ?? contentBorderRadius,
+          contentHorizontalPadding:
+              child.contentHorizontalPadding ?? contentHorizontalPadding,
+          contentVerticalPadding:
+              child.contentVerticalPadding ?? contentVerticalPadding,
+          sectionOpeningHapticFeedback: child.sectionOpeningHapticFeedback ??
+              sectionOpeningHapticFeedback,
+          sectionClosingHapticFeedback: child.sectionClosingHapticFeedback ??
+              sectionClosingHapticFeedback,
+          accordionId: accordionId,
+          onOpenSection: child.onOpenSection,
+          onCloseSection: child.onCloseSection,
         );
       },
     );
