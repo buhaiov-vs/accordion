@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:get/get.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
@@ -31,7 +32,7 @@ mixin CommonParams {
   late final Color? headerBackgroundColorOpened;
   late final double? headerBorderRadius;
   late final EdgeInsets? headerPadding;
-  late final Widget? rightIcon;
+  late final Widget? leftIcon, rightIcon;
   late final RxBool? flipRightIconIfOpen = true.obs;
   late final Color? contentBackgroundColor;
   late final Color? contentBorderColor;
@@ -39,7 +40,7 @@ mixin CommonParams {
   late final double? contentBorderRadius;
   late final double? contentHorizontalPadding;
   late final double? contentVerticalPadding;
-  late final double? paddingBetweenSections;
+  late final double? paddingBetweenOpenSections;
   late final double? paddingBetweenClosedSections;
   late final ScrollIntoViewOfItems? scrollIntoViewOfItems;
   late final SectionHapticFeedback? sectionOpeningHapticFeedback;
@@ -50,39 +51,33 @@ mixin CommonParams {
 /// Controller for `Accordion` widget
 class ListController extends GetxController {
   final controller = AutoScrollController(axis: Axis.vertical);
-  UniqueKey? openSection;
-  final childrenCtrls = <String, List<ListController>>{};
-  final keys = List<UniqueKey>.generate(1000, (index) => UniqueKey());
-
+  final openSections = <UniqueKey>[];
   StreamController<String> controllerIsOpen =
       StreamController<String>.broadcast();
+  final keys = List<UniqueKey>.generate(10000, (index) => UniqueKey());
 
   /// Maximum number of open sections at any given time.
   /// Opening a new section will close the "oldest" open section
   int maxOpenSections = 1;
 
+  /// The delay in milliseconds (when the entire accordion loads)
+  /// before the individual sections open one after another.
+  /// Helpful if you go to a new page in your app and then (after
+  /// the delay) have a nice opening sequence.
+  int initialOpeningSequenceDelay = 250;
+
   /// adds or removes a section key from the list of open sections
   /// and notifies sections to open or close accordingly
-  void updateSection(UniqueKey key) {
-    if (openSection == key) {
-      openSection = null;
-    } else {
-      openSection = key;
-    }
+  void updateSections(UniqueKey key) {
+    openSections.contains(key)
+        ? openSections.remove(key)
+        : openSections.add(key);
 
-    clearChildren(key);
+    while (openSections.length > maxOpenSections) {
+      openSections.removeAt(0);
+    }
 
     controllerIsOpen.sink.add('update list');
-  }
-
-  void clearChildren(UniqueKey key) {
-    var childrenLocal = childrenCtrls.values.mapMany((item) => item);
-
-    for (final child in childrenLocal) {
-      child.openSection = null;
-      child.controllerIsOpen.sink.add('update list');
-      child.clearChildren(key);
-    }
   }
 
   @override
@@ -98,6 +93,7 @@ class SectionController extends GetxController
     with GetSingleTickerProviderStateMixin {
   late final controller = AnimationController(vsync: this);
   final isSectionOpen = false.obs;
+  bool firstRun = true;
 
   @override
   void onClose() {
